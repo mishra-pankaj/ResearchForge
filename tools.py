@@ -37,4 +37,3 @@ def scrape_url(url: str)-> str:
     except Exception as e:
         return f"Error scraping URL: {str(e)}"
 
-print(scrape_url.invoke({"url": "https://docs.langchain.com/oss/python/langchain/agents"}))
