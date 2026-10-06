@@ -11,3 +11,16 @@ load_dotenv()
 #model setup
 llm = ChatGoogleGenerativeAI(model = "gemini-3.5-flash",temperature=0)
 
+#1st agent
+def build_search_agent():
+    return create_agent(
+        model = llm,
+        tools = [web_search]
+    )
+
+#2nd agent
+def build_reader_agent():
+    return create_agent(
+        model = llm,
+        tools = [scrape_url]
+    )
