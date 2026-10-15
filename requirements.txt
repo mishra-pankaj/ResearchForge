@@ -1,0 +1,27 @@
+# LLM / Gemini
+google-generativeai
+
+# LangChain core
+langchain>=1.0
+langchain-core
+langchain-community
+langchain-google-genai
+
+# Agents
+langgraph
+
+# Tavily web search
+tavily-python
+
+# Web scraping
+beautifulsoup4
+requests
+
+# Environment variables
+python-dotenv
+
+# Optional: HTTP client / async support
+httpx
+
+# Jupyter / development (optional)
+ipykernel
