@@ -3,7 +3,6 @@ import requests
 from bs4 import BeautifulSoup
 from tavily import TavilyClient
 import os
-from rich import print
 from dotenv import load_dotenv
 
 load_dotenv()
