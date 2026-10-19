@@ -1,5 +1,15 @@
 # LLM / Gemini
 google-generativeai
+langchain-ollama
+
+pytest
+httpx
+
+fastapi
+uvicorn
+sqlalchemy
+psycopg[binary]
+python-dotenv
 
 # LangChain core
 langchain>=1.0

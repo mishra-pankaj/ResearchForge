@@ -1,68 +1,118 @@
-from agents import build_search_agent, build_reader_agent, writer_chain, critic_chain
+import re
 
-def run_research_pipeline(topic: str) -> dict:
+from tools import scrape_url
+from agents import build_search_agent, writer_chain, critic_chain
 
-    state = {}
+STEPS = ("search", "scrape", "write", "critique")
 
-    #search agent working
-    print("\n"+"="*50)
-    print("Step 1- search agent is working ...")
-    print("="*50+"\n")
+SKIP_DOMAINS = (
+    "youtube.com", "youtu.be", "twitter.com", "x.com",
+    "facebook.com", "instagram.com", "tiktok.com",
+)
+BLOCKED_MARKERS = ("Access Denied", "CLOUDFLARE", "Error scraping URL", "Reference number")
+MIN_CHARS = 500
+MAX_CANDIDATES = 8
+TARGET_PAGES = 3
 
-    search_agent = build_search_agent()
-    search_result = search_agent.invoke({
-        "messages" : [("user", f"Find recent, reliable and detailed information about: {topic}")]
-    })
-    state["search_result"] = search_result["messages"][-1].content
 
-    print("\n Search Result:", state["search_result"])
+def extract_urls(text: str, limit: int = MAX_CANDIDATES) -> list[str]:
+    urls = re.findall(r"https?://[^\s)\]>\"']+", text)
+    urls = [u.rstrip(".,;:") for u in urls]
+    urls = [u for u in urls if not any(d in u for d in SKIP_DOMAINS)]
+    unique = list(dict.fromkeys(urls))
+    return unique[:limit]
 
-    #reader agent working
-    print("\n"+"="*50)
-    print("Step 2- Reader agent is scraping top resources ...")
-    print("="*50+"\n")
 
-    reader_agent = build_reader_agent()
-    reader_result = reader_agent.invoke({
+def is_usable(text: str) -> bool:
+    if any(marker in text for marker in BLOCKED_MARKERS):
+        return False
+    return len(text) >= MIN_CHARS
+
+
+def search_step(topic: str) -> str:
+    agent = build_search_agent()
+    result = agent.invoke({
         "messages": [("user",
-            f"Based on the following search results about '{topic}', "
-            f"pick the most relevant URL and scrape it for deeper content.\n\n"
-            f"Search Results:\n{state['search_result'][:800]}"
-        )]
+            f"Find recent, reliable and detailed information about: {topic}")]
     })
-    state['scraped_content'] = reader_result["messages"][-1].content
+    return result["messages"][-1].text
 
-    print("\n Scraped Content:", state["scraped_content"])
 
-    #writer chain working
-    print("\n"+"="*50)
-    print("Step 3- Writer is generating the final report ...")
-    print("="*50+"\n")
+def scrape_step(search_text: str) -> list[dict]:
+    scraped = []
+    usable_count = 0
+    for url in extract_urls(search_text):
+        if usable_count == TARGET_PAGES:
+            break
+        text = scrape_url.invoke(url)
+        ok = is_usable(text)
+        if ok:
+            usable_count += 1
+            scraped.append({"url": url, "text": text, "ok": True})
+        else:
+            # Keep a short note of why it was skipped, not the full error page.
+            scraped.append({"url": url, "text": text[:300], "ok": False})
+    return scraped
 
-    research_combine = (
-        f"Search Results:\n{state['search_result']}\n\n"
-        f"Detailed Scraped Content:\n{state['scraped_content']}"
-    )
-    state["report"] = writer_chain.invoke({
-        "topic": topic,
-        "research": research_combine
-    })
 
-    print("\n Final Report\n", state["report"])
+def write_step(topic: str, scraped: list[dict]) -> str:
+    usable = [s for s in scraped if s["ok"]]
+    if not usable:
+        research = "No usable sources were found for this topic."
+    else:
+        research = "\n\n".join(f"Source: {s['url']}\n{s['text']}" for s in usable)
 
-    #critics report
-    print("\n"+"="*50)
-    print("Step 4- Critics are reviewing the final report ...")
-    print("="*50+"\n")
+    raw = writer_chain.invoke({"topic": topic, "research": research})
 
-    state["feedback"] = critic_chain.invoke({
-        "report": state["report"]
-    })
+    body = re.split(r"\n[#*\s]*Sources\b.*", raw,
+                    flags=re.IGNORECASE | re.DOTALL)[0].rstrip()
+    return body
 
-    print("\n Critics Review\n", state["feedback"])
+def build_sources_section(scraped: list[dict]) -> str:
+    usable_urls = [s["url"] for s in scraped if s["ok"]]
+    if not usable_urls:
+        return "#### Sources\nNo usable sources were found."
+    lines = "\n".join(f"{i}. {url}" for i, url in enumerate(usable_urls, 1))
+    return f"#### Sources\n{lines}"
 
-    return state
+
+def parse_score(critic_text: str) -> int | None:
+    match = re.search(r"Score:\s*(\d+)", critic_text)
+    return int(match.group(1)) if match else None
+
+
+def run_research(topic: str, on_step=None) -> dict:
+    notify = on_step or (lambda step: None)
+
+    notify("search")
+    search_text = search_step(topic)
+
+    notify("scrape")
+    scraped = scrape_step(search_text)
+
+    notify("write")
+    body = write_step(topic, scraped)
+    report = f"{body}\n\n{build_sources_section(scraped)}"
+
+    notify("critique")
+    critic_text = critic_chain.invoke({"report": report})
+
+    return {
+        "search_results": search_text,
+        "scraped": scraped,
+        "report": report,
+        "review": {"score": parse_score(critic_text), "text": critic_text},
+    }
+
 
 if __name__ == "__main__":
-    topic = input("\nEnter a research topic: ")
-    run_research_pipeline(topic)
+    topic = input("\nEnter a research topic: ").strip()
+
+    result = run_research(topic, on_step=lambda step: print(f"\n[step] {step}"))
+
+    print("\nScraped pages:")
+    for item in result["scraped"]:
+        print(f"  {'OK     ' if item['ok'] else 'SKIPPED'} {item['url']}")
+
+    print("\nREPORT\n", result["report"])
+    print("\nREVIEW\n", result["review"]["text"])

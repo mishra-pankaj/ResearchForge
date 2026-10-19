@@ -1,5 +1,5 @@
+from service.ai import get_llm
 from langchain.agents import create_agent
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from tools import web_search, scrape_url
@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 #model setup
-llm = ChatGoogleGenerativeAI(model = "gemini-3.5-flash",temperature=0)
+llm = get_llm()
 
 #1st agent
 def build_search_agent():
@@ -35,11 +35,15 @@ Topic: {topic}
 Research Gathered:
 {research}
 
+Use only facts and URLs that appear in the research above. Do not add
+examples, statistics, or sources from memory. If a claim is not supported by
+the research, leave it out.
+
 Structure the report as:
 - Introduction
 - Key Findings (minimum 3 well-explained points)
 - Conclusion
-- Sources (list all URLs found in the research)
+- Sources (list all URLs found in the research.If none appear, write "No sources were found in the research.)
 
 Be detailed, factual and professional."""),
 ])
