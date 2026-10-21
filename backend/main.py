@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend import jobs
+from backend.auth import router as auth_router
 from backend.db import engine, get_db
 from backend.models import ResearchJob
 from backend.schemas import (
@@ -27,7 +28,6 @@ load_dotenv()
 
 # A job counts as finished when it has stopped running, either successfully or not.
 FINISHED_STATUSES = ("done", "failed")
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,7 +50,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+app.include_router(auth_router)
 def current_llm_info() -> tuple[str, str]:
     """Return the provider and model name that will be used for new jobs."""
     provider = os.getenv("LLM_PROVIDER", "ollama")
