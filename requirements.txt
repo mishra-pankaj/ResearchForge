@@ -5,6 +5,10 @@ langchain-ollama
 pytest
 httpx
 
+bcrypt
+pyjwt
+email-validator
+
 fastapi
 uvicorn
 sqlalchemy
