@@ -2,7 +2,8 @@
 import os
 import uuid
 from contextlib import asynccontextmanager
-
+from backend.auth import get_current_user
+from backend.models import ResearchJob, User
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -112,7 +113,11 @@ def health():
 
 
 @app.post("/research", response_model=ResearchCreated, status_code=202)
-def create_research(body: ResearchCreate, db: Session = Depends(get_db)):
+def create_research(
+    body: ResearchCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)):
+
     """Save a new job as queued and hand it to the background worker."""
     provider, model = current_llm_info()
 
@@ -121,6 +126,7 @@ def create_research(body: ResearchCreate, db: Session = Depends(get_db)):
         status="queued",
         llm_provider=provider,
         llm_model=model,
+        user_id=current_user.id
     )
     db.add(job)
     db.commit()       # save first, so the worker can find the row
@@ -132,10 +138,14 @@ def create_research(body: ResearchCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/research/{job_id}")
-def get_research(job_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_research(
+    job_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Return progress while the job runs, or the full result once it is done."""
     job = db.get(ResearchJob, job_id)
-    if job is None:
+    if job is None or job.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Research job not found")
 
     if job.status == "done":
@@ -150,10 +160,12 @@ def list_research(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """List finished jobs, newest first, with paging."""
     rows = (
         db.query(ResearchJob)
+        .filter(ResearchJob.user_id == current_user.id)
         .filter(ResearchJob.status.in_(FINISHED_STATUSES))
         .order_by(ResearchJob.created_at.desc())
         .offset(offset)
@@ -164,20 +176,16 @@ def list_research(
 
 
 @app.delete("/research/{job_id}", status_code=204)
-def delete_research(job_id: uuid.UUID, db: Session = Depends(get_db)):
-    """Delete a job. Refused while that job is running."""
-    if jobs.get_running_job_id() == job_id:
-        raise HTTPException(
-            status_code=409,
-            detail="This job is running right now and cannot be deleted yet",
-        )
-
+def delete_research(
+    job_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)):
+    """Delete one of this user's jobs. Refused while that job is running."""
     job = db.get(ResearchJob, job_id)
-    if job is None:
+    if job is None or job.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Research job not found")
 
-    if job.status == "running":
-        # Covers the short moment between the worker starting and recording itself.
+    if jobs.get_running_job_id() == job_id or job.status == "running":
         raise HTTPException(
             status_code=409,
             detail="This job is running right now and cannot be deleted yet",

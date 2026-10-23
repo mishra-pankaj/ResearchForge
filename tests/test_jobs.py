@@ -4,25 +4,29 @@ import threading
 import types
 import uuid
 
+import pytest
+from sqlalchemy import delete
+
 from backend import jobs
 from backend.db import SessionLocal
 from backend.models import ResearchJob
 
 
 def use_fake_pipeline(monkeypatch, fake_run):
-    """Replace pipeline.run_research with a fake, without loading LangChain.
-
-    _run_job imports run_research at call time, so it picks up this fake.
-    """
+    """Replace pipeline.run_research with a fake, without loading LangChain."""
     module = types.ModuleType("pipeline")
     module.run_research = fake_run
     monkeypatch.setitem(sys.modules, "pipeline", module)
 
 
-def insert_job(created_ids, **fields):
+def insert_job(created_ids, owner_id, **fields):
     db = SessionLocal()
     try:
-        job = ResearchJob(topic=fields.pop("topic", "job test topic"), **fields)
+        job = ResearchJob(
+            topic=fields.pop("topic", "job test topic"),
+            user_id=owner_id,
+            **fields,
+        )
         db.add(job)
         db.commit()
         db.refresh(job)
@@ -49,7 +53,7 @@ def read_job(job_id):
 
 # ---------- _run_job: success and failure ----------
 
-def test_successful_run_saves_result(monkeypatch, created_ids):
+def test_successful_run_saves_result(monkeypatch, created_ids, test_user):
     seen_steps = []
 
     def fake_run(topic, on_step):
@@ -64,7 +68,7 @@ def test_successful_run_saves_result(monkeypatch, created_ids):
         }
 
     use_fake_pipeline(monkeypatch, fake_run)
-    job_id = insert_job(created_ids, topic="success topic")
+    job_id = insert_job(created_ids, test_user["id"], topic="success topic")
 
     jobs._run_job(job_id)
 
@@ -76,13 +80,13 @@ def test_successful_run_saves_result(monkeypatch, created_ids):
     assert data["finished_at"] is not None
 
 
-def test_failed_run_saves_error(monkeypatch, created_ids):
+def test_failed_run_saves_error(monkeypatch, created_ids, test_user):
     def fake_run(topic, on_step):
         on_step("search")
         raise RuntimeError("model unreachable")
 
     use_fake_pipeline(monkeypatch, fake_run)
-    job_id = insert_job(created_ids, topic="failing topic")
+    job_id = insert_job(created_ids, test_user["id"], topic="failing topic")
 
     jobs._run_job(job_id)
 
@@ -92,12 +96,12 @@ def test_failed_run_saves_error(monkeypatch, created_ids):
     assert data["finished_at"] is not None
 
 
-def test_error_without_message_uses_exception_name(monkeypatch, created_ids):
+def test_error_without_message_uses_exception_name(monkeypatch, created_ids, test_user):
     def fake_run(topic, on_step):
         raise ValueError()  # str(exc) is empty here
 
     use_fake_pipeline(monkeypatch, fake_run)
-    job_id = insert_job(created_ids, topic="silent failure")
+    job_id = insert_job(created_ids, test_user["id"], topic="silent failure")
 
     jobs._run_job(job_id)
 
@@ -106,7 +110,7 @@ def test_error_without_message_uses_exception_name(monkeypatch, created_ids):
 
 # ---------- _run_job: tracking the running job ----------
 
-def test_current_job_is_tracked_during_run(monkeypatch, created_ids):
+def test_current_job_is_tracked_during_run(monkeypatch, created_ids, test_user):
     observed = []
 
     def fake_run(topic, on_step):
@@ -114,7 +118,7 @@ def test_current_job_is_tracked_during_run(monkeypatch, created_ids):
         return {"report": "r"}
 
     use_fake_pipeline(monkeypatch, fake_run)
-    job_id = insert_job(created_ids, topic="tracked topic")
+    job_id = insert_job(created_ids, test_user["id"], topic="tracked topic")
 
     jobs._run_job(job_id)
 
@@ -122,19 +126,19 @@ def test_current_job_is_tracked_during_run(monkeypatch, created_ids):
     assert jobs.get_running_job_id() is None
 
 
-def test_current_job_is_cleared_after_failure(monkeypatch, created_ids):
+def test_current_job_is_cleared_after_failure(monkeypatch, created_ids, test_user):
     def fake_run(topic, on_step):
         raise RuntimeError("boom")
 
     use_fake_pipeline(monkeypatch, fake_run)
-    job_id = insert_job(created_ids, topic="failing tracked topic")
+    job_id = insert_job(created_ids, test_user["id"], topic="failing tracked topic")
 
     jobs._run_job(job_id)
 
     assert jobs.get_running_job_id() is None
 
 
-def test_delete_refused_while_job_is_running(monkeypatch, client, created_ids):
+def test_delete_refused_while_job_is_running(monkeypatch, client, created_ids, test_user, auth_headers):
     started = threading.Event()
     release = threading.Event()
 
@@ -144,13 +148,13 @@ def test_delete_refused_while_job_is_running(monkeypatch, client, created_ids):
         return {"report": "r"}
 
     use_fake_pipeline(monkeypatch, fake_run)
-    job_id = insert_job(created_ids, topic="busy job")
+    job_id = insert_job(created_ids, test_user["id"], topic="busy job")
 
     worker = threading.Thread(target=jobs._run_job, args=(job_id,))
     worker.start()
     try:
         assert started.wait(timeout=10), "job never started"
-        response = client.delete(f"/research/{job_id}")
+        response = client.delete(f"/research/{job_id}", headers=auth_headers)
         assert response.status_code == 409
     finally:
         release.set()
@@ -177,9 +181,9 @@ def test_run_job_ignores_missing_job(monkeypatch):
 
 # ---------- mark_stale_jobs_failed ----------
 
-def test_stale_jobs_are_marked_failed(created_ids):
-    running_id = insert_job(created_ids, topic="stale running", status="running")
-    queued_id = insert_job(created_ids, topic="stale queued", status="queued")
+def test_stale_jobs_are_marked_failed(created_ids, test_user):
+    running_id = insert_job(created_ids, test_user["id"], topic="stale running", status="running")
+    queued_id = insert_job(created_ids, test_user["id"], topic="stale queued", status="queued")
 
     count = jobs.mark_stale_jobs_failed()
 
