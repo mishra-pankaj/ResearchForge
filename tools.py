@@ -32,7 +32,9 @@ def scrape_url(url: str)-> str:
         soup = BeautifulSoup(resp.text, "html.parser")
         for tag in soup(["script", "nav", "footer"]):
             tag.decompose()
-        return soup.get_text(separator=" ", strip=True)[:3000]
+        text = soup.get_text(separator=" ", strip=True)
+        text = text.replace("\x00", "").replace("\ufffd", "")
+        return text[:3000]
     except Exception as e:
         return f"Error scraping URL: {str(e)}"
 

@@ -1,6 +1,6 @@
 // src/pages/Home.jsx
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { createResearch } from "../api";
 import ErrorMessage from "../components/ErrorMessage";
 
@@ -34,12 +34,7 @@ export default function Home() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
-      <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-800">Research Assistant</h1>
-        <Link to="/history" className="text-sm font-medium text-blue-600 hover:underline">
-          History
-        </Link>
-      </header>
+      <h1 className="mb-8 text-2xl font-bold text-slate-800">Research Assistant</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <label htmlFor="topic" className="block text-sm font-medium text-slate-700">
