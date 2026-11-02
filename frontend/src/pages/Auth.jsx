@@ -1,4 +1,3 @@
-// src/pages/Auth.jsx
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { login, register, getMe } from "../api";

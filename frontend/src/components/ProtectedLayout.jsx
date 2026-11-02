@@ -1,4 +1,3 @@
-// src/components/ProtectedLayout.jsx
 import { Navigate, Outlet } from "react-router-dom";
 import { isLoggedIn } from "../auth";
 import Header from "./Header";

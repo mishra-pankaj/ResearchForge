@@ -1,4 +1,3 @@
-// src/components/ReportView.jsx
 import ReactMarkdown from "react-markdown";
 import SourceText from "./SourceText";
 

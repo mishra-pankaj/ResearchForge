@@ -1,4 +1,3 @@
-// src/pages/Home.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createResearch } from "../api";

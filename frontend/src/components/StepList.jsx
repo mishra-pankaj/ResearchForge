@@ -1,4 +1,3 @@
-// src/components/StepList.jsx
 const STEPS = [
   { key: "search", label: "Searching the web" },
   { key: "scrape", label: "Reading sources" },
