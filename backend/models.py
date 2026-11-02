@@ -1,4 +1,3 @@
-# backend/models.py
 import uuid
 from sqlalchemy import String, Text, DateTime, ForeignKey
 from datetime import datetime, timezone

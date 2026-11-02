@@ -1,4 +1,3 @@
-# backend/init_db.py
 from backend.db import engine, Base
 from backend import models  # noqa: F401  (importing registers the table)
 

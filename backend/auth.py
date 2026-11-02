@@ -1,4 +1,3 @@
-# backend/auth.py
 import uuid
 
 import jwt

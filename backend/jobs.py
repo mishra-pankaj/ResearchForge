@@ -1,4 +1,3 @@
-# backend/jobs.py
 import logging
 import queue
 import threading
