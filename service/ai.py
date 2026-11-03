@@ -14,4 +14,13 @@ def get_llm():
             temperature=0,
         )
 
+    if provider == "groq":
+        from langchain_groq import ChatGroq
+        return ChatGroq(
+            model=os.getenv("LLM_MODEL", "openai/gpt-oss-20b"),
+            temperature=0,
+            # max_tokens=2000,
+            # reasoning_effort="low",
+        )
+
     raise ValueError(f"Unknown LLM_PROVIDER: {provider}")

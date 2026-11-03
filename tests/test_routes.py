@@ -144,8 +144,7 @@ def test_get_done_job_returns_full_result(auth_client, created_ids, test_user):
         result={
             "search_results": "search text",
             "scraped": [{"url": "https://a.example", "ok": True, "text": "page"}],
-            "report": "the report",
-            "review": {"score": 7, "text": "good"},
+            "report": "the report"
         },
     )
 
@@ -155,7 +154,7 @@ def test_get_done_job_returns_full_result(auth_client, created_ids, test_user):
     body = response.json()
     assert body["report"] == "the report"
     assert body["sources"] == ["https://a.example"]
-    assert body["review"]["score"] == 7
+
 
 
 def test_get_failed_job_returns_error(auth_client, created_ids, test_user):

@@ -1,9 +1,9 @@
 import re
 
 from tools import scrape_url
-from agents import build_search_agent, writer_chain, critic_chain
+from agents import build_search_agent, writer_chain
 
-STEPS = ("search", "scrape", "write", "critique")
+STEPS = ("search", "scrape", "write")
 
 SKIP_DOMAINS = (
     "youtube.com", "youtu.be", "twitter.com", "x.com",
@@ -12,7 +12,8 @@ SKIP_DOMAINS = (
 BLOCKED_MARKERS = ("Access Denied", "CLOUDFLARE", "Error scraping URL", "Reference number")
 MIN_CHARS = 500
 MAX_CANDIDATES = 8
-TARGET_PAGES = 3
+TARGET_PAGES = 2
+PAGE_CHAR_LIMIT = 3000
 
 
 def extract_urls(text: str, limit: int = MAX_CANDIDATES) -> list[str]:
@@ -45,6 +46,7 @@ def scrape_step(search_text: str) -> list[dict]:
         if usable_count == TARGET_PAGES:
             break
         text = scrape_url.invoke(url)
+        text = scrape_url.invoke(url)[:PAGE_CHAR_LIMIT]
         ok = is_usable(text)
         if ok:
             usable_count += 1
@@ -76,10 +78,6 @@ def build_sources_section(scraped: list[dict]) -> str:
     return f"#### Sources\n{lines}"
 
 
-def parse_score(critic_text: str) -> int | None:
-    match = re.search(r"Score:\s*(\d+)", critic_text)
-    return int(match.group(1)) if match else None
-
 
 def run_research(topic: str, on_step=None) -> dict:
     notify = on_step or (lambda step: None)
@@ -94,14 +92,10 @@ def run_research(topic: str, on_step=None) -> dict:
     body = write_step(topic, scraped)
     report = f"{body}\n\n{build_sources_section(scraped)}"
 
-    notify("critique")
-    critic_text = critic_chain.invoke({"report": report})
-
     return {
         "search_results": search_text,
         "scraped": scraped,
-        "report": report,
-        "review": {"score": parse_score(critic_text), "text": critic_text},
+        "report": report
     }
 
 
@@ -115,4 +109,3 @@ if __name__ == "__main__":
         print(f"  {'OK     ' if item['ok'] else 'SKIPPED'} {item['url']}")
 
     print("\nREPORT\n", result["report"])
-    print("\nREVIEW\n", result["review"]["text"])

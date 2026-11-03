@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator,EmailStr
 
 
 JobStatus = Literal["queued", "running", "done", "failed"]
+FeedbackKind = Literal["up", "down"]
 
 
 class ResearchCreate(BaseModel):
@@ -40,10 +41,6 @@ class ResearchStatus(BaseModel):
     finished_at: datetime | None = None
 
 
-class Review(BaseModel):
-    score: int | None = None
-    text: str = ""
-
 
 class ScrapedSource(BaseModel):
     url: str
@@ -65,7 +62,7 @@ class ResearchResult(BaseModel):
     sources: list[str] = []
     scraped: list[ScrapedSource] = []
     report: str = ""
-    review: Review = Review()
+
 
 
 class ResearchListItem(BaseModel):
@@ -102,3 +99,27 @@ class UserPublic(BaseModel):
 
     id: uuid.UUID
     email: str
+
+class FeedbackCreate(BaseModel):
+    """Request body for POST /research/{job_id}/feedback."""
+    kind: FeedbackKind
+    message: str = Field(..., min_length=1, max_length=1000)
+
+    @field_validator("message")
+    @classmethod
+    def strip_message(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("message cannot be blank")
+        return value
+
+
+class FeedbackOut(BaseModel):
+    """Response for a saved feedback."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    job_id: uuid.UUID
+    kind: FeedbackKind
+    message: str
+    created_at: datetime

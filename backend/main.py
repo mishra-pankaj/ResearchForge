@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from backend import jobs
 from backend.auth import router as auth_router
+from backend.feedback import router as feedback_router
 from backend.db import engine, get_db
 from backend.models import ResearchJob
 from backend.schemas import (
@@ -20,7 +21,6 @@ from backend.schemas import (
     ResearchListItem,
     ResearchResult,
     ResearchStatus,
-    Review,
     ScrapedSource,
 )
 
@@ -51,6 +51,8 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(feedback_router)
+
 def current_llm_info() -> tuple[str, str]:
     """Return the provider and model name that will be used for new jobs."""
     provider = os.getenv("LLM_PROVIDER", "ollama")
@@ -80,7 +82,7 @@ def build_result(job: ResearchJob) -> ResearchResult:
     # Sources are the pages that were actually read successfully.
     sources = [item.url for item in scraped if item.ok]
 
-    review = data.get("review") or {}
+
 
     return ResearchResult(
         id=job.id,
@@ -92,8 +94,7 @@ def build_result(job: ResearchJob) -> ResearchResult:
         finished_at=job.finished_at,
         sources=sources,
         scraped=scraped,
-        report=data.get("report", ""),
-        review=Review(score=review.get("score"), text=review.get("text", "")),
+        report=data.get("report", "")
     )
 
 
