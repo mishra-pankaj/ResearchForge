@@ -1,7 +1,9 @@
 import os
 import uuid
 from contextlib import asynccontextmanager
+from backend import db
 from backend.auth import get_current_user
+from backend import limits
 from backend.models import ResearchJob, User
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
@@ -9,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
 
 from backend import jobs
 from backend.auth import router as auth_router
@@ -119,6 +122,18 @@ def create_research(
     current_user: User = Depends(get_current_user)):
 
     """Save a new job as queued and hand it to the background worker."""
+    if limits.user_has_active_job(db, current_user.id):
+        raise HTTPException(
+            status_code=409,
+            detail="You already have a research job running. Wait for it to finish.",
+        )
+
+    if limits.global_cap_reached(db):
+        raise HTTPException(
+            status_code=429,
+            detail="The service has reached its daily limit. Try again later.",
+            headers={"Retry-After": "3600"},
+        )
     provider, model = current_llm_info()
 
     job = ResearchJob(
