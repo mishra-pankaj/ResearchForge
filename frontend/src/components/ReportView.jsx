@@ -1,6 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import SourceText from "./SourceText";
-
+import FeedbackBox from "./FeedbackBox";
 // The backend builds a Sources section at the end of the report.
 // We show sources in their own panel, so remove it from the body.
 function stripSourcesSection(markdown) {
@@ -101,6 +101,7 @@ export default function ReportView({ result }) {
           {result.review?.text}
         </p>
       </section>
+      <FeedbackBox jobId={result.id} />
 
       <SourceText scraped={result.scraped} />
     </div>

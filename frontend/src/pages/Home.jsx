@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { createResearch } from "../api";
 import ErrorMessage from "../components/ErrorMessage";
 
-const MIN_LENGTH = 3;
+
+const MIN_LENGTH = 3
 const MAX_LENGTH = 300;
 
 export default function Home() {
@@ -34,6 +35,7 @@ export default function Home() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
       <h1 className="mb-8 text-2xl font-bold text-slate-800">Research Assistant</h1>
+
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <label htmlFor="topic" className="block text-sm font-medium text-slate-700">

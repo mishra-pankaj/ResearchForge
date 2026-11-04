@@ -97,3 +97,22 @@ export function listResearch({ limit = 20, offset = 0 } = {}) {
 export function deleteResearch(id) {
   return request(`/research/${id}`, { method: "DELETE" });
 }
+
+// Feedback
+
+export async function getFeedback(jobId) {
+  try {
+    return await request(`/research/${jobId}/feedback`);
+  } catch (err) {
+    // A 404 means no reply has been given yet, which is a normal state.
+    if (err.status === 404) return null;
+    throw err;
+  }
+}
+
+export function submitFeedback(jobId, kind, message) {
+  return request(`/research/${jobId}/feedback`, {
+    method: "POST",
+    body: JSON.stringify({ kind, message }),
+  });
+}
