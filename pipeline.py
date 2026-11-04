@@ -13,7 +13,7 @@ BLOCKED_MARKERS = ("Access Denied", "CLOUDFLARE", "Error scraping URL", "Referen
 MIN_CHARS = 500
 MAX_CANDIDATES = 8
 TARGET_PAGES = 2
-PAGE_CHAR_LIMIT = 3000
+PAGE_CHAR_LIMIT = 2500
 
 
 def extract_urls(text: str, limit: int = MAX_CANDIDATES) -> list[str]:
