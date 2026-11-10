@@ -3,6 +3,7 @@ import uuid
 from contextlib import asynccontextmanager
 from backend import db
 from backend.auth import get_current_user
+from backend.db import Base
 from backend import limits
 from backend.models import ResearchJob, User
 from dotenv import load_dotenv
@@ -34,7 +35,9 @@ FINISHED_STATUSES = ("done", "failed")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Runs once when the server starts, before it accepts requests.
+    # Create any missing tables. Existing tables and their rows are left alone.
+    Base.metadata.create_all(bind=engine)
+
     failed_count = jobs.mark_stale_jobs_failed()
     if failed_count:
         print(f"Marked {failed_count} leftover job(s) from a previous run as failed.")
@@ -46,9 +49,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Multi-Agent Research API", lifespan=lifespan)
 
 # Lets the React dev server (Vite, port 5173) call this API from the browser.
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

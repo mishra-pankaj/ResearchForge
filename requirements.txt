@@ -2,9 +2,6 @@
 google-generativeai
 langchain-ollama
 
-pytest
-httpx
-
 bcrypt
 pyjwt
 email-validator
@@ -35,7 +32,7 @@ requests
 python-dotenv
 
 # Optional: HTTP client / async support
-httpx
+
 
 # Jupyter / development (optional)
 ipykernel
